@@ -4,12 +4,11 @@ Created on Fri Oct  4 14:31:15 2019
 
 @author: xz01m2
 """
-from  keras.models import Sequential
-from  keras.layers import Dense
-from  keras.optimizers import Adam
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.optimizers import Adam
 
 class Model:
-
     def __init__(self, num_states, num_actions):
         model = Sequential()
         model.add(Dense(400, input_dim= num_states))

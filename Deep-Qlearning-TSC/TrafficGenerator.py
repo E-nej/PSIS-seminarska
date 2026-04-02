@@ -30,8 +30,7 @@ class TrafficGenerator:
         self._max_steps = max_steps
 
     # generation of routes of cars
-    def generate_routefile(self, seed):
-        
+    def generate_routefile(self, seed):     
         if seed >=0 :
             np.random.seed(seed)  # make tests reproducible
 

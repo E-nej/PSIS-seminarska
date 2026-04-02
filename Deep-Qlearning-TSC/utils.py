@@ -5,14 +5,16 @@ Created on Sun Mar 22 21:55:20 2020
 @author: XZ01M2
 """
 
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt # type: ignore
 import numpy as np 
 import glob
-import seaborn as sns
+import seaborn as sns # type: ignore
+
+FOLDER = 'results/'
 
 def get_file_names():
-     qmodel_file_name = glob.glob('./qmodel*')
-     stats_file_name = glob.glob('./stats*')
+     qmodel_file_name = glob.glob(f'{FOLDER}qmodel*')
+     stats_file_name = glob.glob(f'{FOLDER}stats*')
      
      if not qmodel_file_name:
          qmodel_file_name = ''
@@ -27,7 +29,6 @@ def get_file_names():
      return qmodel_file_name, stats_file_name
 
 def get_init_epoch( filename,total_episodes ):
-    
     if filename:
         index = filename.find('_')
         exp_start = index + 1 
@@ -41,36 +42,29 @@ def get_init_epoch( filename,total_episodes ):
         else:
             epoch = 0
             exp +=1
-        
     else:
         exp=0
         epoch = 0
     return exp , epoch
 
 def get_stats(stats_filename, num_experiments, total_episodes, learn = True):
-    
     if stats_filename and learn:
-        stats =np.load(stats_filename, allow_pickle = True)[()]
-      
+        stats =np.load(stats_filename, allow_pickle = True)[()] 
     else:
         reward_store = np.zeros((num_experiments,total_episodes))
         intersection_queue_store = np.zeros((num_experiments,total_episodes))
         stats = {'rewards': reward_store, 'intersection_queue': intersection_queue_store }
 
-    return stats
-    
-    
+    return stats 
     
 def plot_sample(sample, title, xlabel, legend_label, show= True):
-    
    #plt.hist(sample, bins = 5, histtype = 'bar')
     #plt.xlabel(xlabel)
     ax= sns.distplot(sample, kde=True, label =  legend_label)
     ax.set(xlabel=xlabel, title= title)
     ax.legend()
     if show:
-        plt.show()
-    
+        plt.show()   
     
 def plot_rewards( reward_store):
     x = np.mean(reward_store, axis = 0 )
@@ -82,7 +76,6 @@ def plot_rewards( reward_store):
     plt.show() 
     
 def plot_intersection_queue_size( intersection_queue_store):
-    
     x = np.mean(intersection_queue_store, axis = 0 )
     plt.plot(x, label = "Cummulative intersection queue size ", color='m') 
     plt.xlabel('Episodes') 
