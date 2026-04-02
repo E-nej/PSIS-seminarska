@@ -10,6 +10,8 @@ import random
 from collections import deque
 from tensorflow.keras.models import load_model # type: ignore
 
+import utils
+
 class TLAgent:
     def __init__(self, env, traffic_gen, max_steps, num_experients, total_episodes, qmodel_filename, stats_filename, stats , init_epoch, learn = True):     
         self.env = env
@@ -44,9 +46,7 @@ class TLAgent:
         self.init_epoch = init_epoch
         self._load_models(learn)
         self.max_steps = max_steps
-        
-        self.save_folder = 'results/'
-        
+                        
     def _load_models(self , learn = True) :
         self.QModel = Model(self.num_states, self.num_actions )
         self.TargetQModel = Model(self.num_states, self.num_actions)
@@ -148,9 +148,11 @@ class TLAgent:
             print('sum_intersection_queue={}'.format(sum_intersection_queue))
             print('Epoch {} complete'.format(e))
             if e != 0:
-                os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment, e-1))
+                # os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment, e-1))
+                utils.remove_stats(experiment, e-1)
             elif experiment !=0:
-                os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment-1, self.total_episodes-1))
+                # os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment-1, self.total_episodes-1))
+                utils.remove_stats(experiment-1, self.total_episodes-1)
             if e +1 < self.total_episodes:
                 self.traffic_gen.generate_routefile(seeds[e+1])
             curr_state =self.env.reset()
@@ -179,9 +181,11 @@ class TLAgent:
             print('sum_intersection_queue={}'.format(sum_intersection_queue))
             print('Epoch {} complete'.format(e))
             if e != 0:
-                os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment, e-1))
+                # os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment, e-1))
+                utils.remove_stats(experiment, e-1)
             elif experiment !=0:
-                os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment-1, self.total_episodes-1))
+                # os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment-1, self.total_episodes-1))
+                utils.remove_stats(experiment-1, self.total_episodes-1)
             if e +1 < self.total_episodes:
                 self.traffic_gen.generate_routefile(seeds[e+1])
             self.env.reset()
@@ -221,13 +225,18 @@ class TLAgent:
                     sum_neg_rewards += reward
                     
             self._save_stats(experiment, e, sum_intersection_queue,sum_neg_rewards)
-            self.QModel.save('{}qmodel_{}_{}.h5'.format(self.save_folder, experiment, e))
+            # self.QModel.save('{}qmodel_{}_{}.h5'.format(self.save_folder, experiment, e))
+            utils.save_qmodel(self.QModel, experiment, e)
             if e != 0:
-                os.remove('{}qmodel_{}_{}.h5'.format(self.save_folder, experiment, e-1))
-                os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment, e-1))
+                # os.remove('{}qmodel_{}_{}.h5'.format(self.save_folder, experiment, e-1))
+                # os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment, e-1))
+                utils.remove_qmodel(experiment, e-1)
+                utils.remove_stats(experiment, e-1)
             elif experiment !=0:
-                os.remove('{}qmodel_{}_{}.h5'.format(self.save_folder, experiment-1, self.total_episodes-1))
-                os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment-1, self.total_episodes-1))
+                # os.remove('{}qmodel_{}_{}.h5'.format(self.save_folder, experiment-1, self.total_episodes-1))
+                # os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment-1, self.total_episodes-1))
+                utils.remove_qmodel(experiment-1, self.total_episodes-1)
+                utils.remove_stats(experiment-1, self.total_episodes-1)
             self.traffic_gen.generate_routefile(e+1)
             curr_state = self.env.reset()   # reset the environment before every episode
             print('Epoch {} complete'.format(e))
@@ -239,5 +248,6 @@ class TLAgent:
     def _save_stats(self, experiment, episode, sum_intersection_queue_per_episode, sum_rewards_per_episode):
         self.stats['rewards'][experiment, episode] = sum_rewards_per_episode
         self.stats['intersection_queue'][experiment, episode] = sum_intersection_queue_per_episode  
-        np.save('{}stats_{}_{}.npy'.format(self.save_folder, experiment, episode), self.stats)
+        # np.save('{}stats_{}_{}.npy'.format(self.save_folder, experiment, episode), self.stats)
+        utils.save_stats(self.stats, experiment, episode)
         

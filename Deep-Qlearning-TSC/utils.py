@@ -5,6 +5,8 @@ Created on Sun Mar 22 21:55:20 2020
 @author: XZ01M2
 """
 
+import os
+
 import matplotlib.pyplot as plt # type: ignore
 import numpy as np 
 import glob
@@ -13,20 +15,20 @@ import seaborn as sns # type: ignore
 FOLDER = 'results/'
 
 def get_file_names():
-     qmodel_file_name = glob.glob(f'{FOLDER}qmodel*')
-     stats_file_name = glob.glob(f'{FOLDER}stats*')
-     
-     if not qmodel_file_name:
-         qmodel_file_name = ''
-     else:
-         qmodel_file_name = qmodel_file_name[0]
+    qmodel_file_name = glob.glob(f'{FOLDER}qmodel*')
+    stats_file_name = glob.glob(f'{FOLDER}stats*')
     
-     if not stats_file_name:
-         stats_file_name = ''
-     else:
-         stats_file_name = stats_file_name[0]
+    if not qmodel_file_name:
+        qmodel_file_name = ''
+    else:
+        qmodel_file_name = qmodel_file_name[0]
 
-     return qmodel_file_name, stats_file_name
+    if not stats_file_name:
+        stats_file_name = ''
+    else:
+        stats_file_name = stats_file_name[0]
+
+    return qmodel_file_name, stats_file_name
 
 def get_init_epoch( filename,total_episodes ):
     if filename:
@@ -83,3 +85,15 @@ def plot_intersection_queue_size( intersection_queue_store):
     plt.title('Cummulative intersection queue size across episodes') 
     plt.legend() 
     plt.show() 
+    
+def remove_qmodel(experiment, e):
+    os.remove('{}qmodel_{}_{}.keras'.format(FOLDER, experiment, e))
+
+def remove_stats(experiment, e):
+    os.remove('{}stats_{}_{}.npy'.format(FOLDER, experiment, e))
+
+def save_qmodel(qmodel, experiment, e):
+    qmodel.save('{}qmodel_{}_{}.keras'.format(FOLDER, experiment, e))
+    
+def save_stats(stats, experiment, e):
+    np.save('{}stats_{}_{}.npy'.format(FOLDER, experiment, e), stats)
