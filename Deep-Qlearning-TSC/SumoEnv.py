@@ -4,10 +4,13 @@ Created on Sun Sep 29 21:20:28 2019
 
 @author: Ritu Pande
 """
+import os
 import traci
 import numpy as np
 class SumoEnv:
     def __init__(self, sumoBinary, max_steps):
+         # Ensure SUMO output directory exists to avoid "Could not build output file" errors
+         os.makedirs("results", exist_ok=True)
          self.sumoCmd = [sumoBinary, "-c", "intersection/ts.4L.sumocfg", "--no-step-log", "true", "--waiting-time-memory", str(max_steps), "--log","results/logfile.txt"]
          self.SUMO_INT_LANE_LENGTH = 500
          self.num_states = 80 # 0-79 see _encode_env_state function for details
@@ -143,4 +146,8 @@ class SumoEnv:
         return state
         
     def __del__( self ):
-        traci.close()
+        try:
+            traci.close()
+        except Exception:
+            # Ignore errors when TRACI is already disconnected
+            pass

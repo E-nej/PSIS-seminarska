@@ -1,7 +1,22 @@
 import os
 import sys
 
-sys.path.append('/usr/share/sumo/tools')
+# možni paths za sumo (linux in windows)
+sumo_paths = [
+    '/usr/share/sumo/tools',
+    # program files (x86) je default install location i think
+    'C:\\Program Files (x86)\\Eclipse\\Sumo\\tools',
+    'C:\\Program Files\\Sumo\\tools',
+]
+
+# če je sumo že v sys env variables
+s_h = os.environ.get('SUMO_HOME')
+if s_h:
+    sumo_paths.insert(0, os.path.join(s_h, 'tools'))
+
+for p in sumo_paths:
+    if os.path.isdir(p) and p not in sys.path:
+        sys.path.append(p)
 
 from  Model import Model
 import traci # type: ignore
