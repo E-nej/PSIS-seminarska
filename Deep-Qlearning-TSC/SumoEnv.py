@@ -26,16 +26,26 @@ class SumoEnv:
         return self.current_state
     
     def start(self):
-        traci.start(self.sumoCmd)
-        self.current_state = self._encode_env_state()
-        return self.current_state
+        try:
+            traci.start(self.sumoCmd)
+            self.current_state = self._encode_env_state()
+            return self.current_state
+        except Exception as e:
+            print(f"SUMO start FAILED: {type(e).__name__}: {e}")
+            raise
+
         
     def reset(self):
-        traci.close()
-        traci.start(self.sumoCmd)
-        self._init()
-        self.current_state = self._encode_env_state()
-        return self.current_state
+        try:
+            traci.close()
+            traci.start(self.sumoCmd)
+            self._init()
+            self.current_state = self._encode_env_state()
+            return self.current_state
+        except Exception as e:
+            print(f"SUMO reset FAILED: {type(e).__name__}: {e}")
+            raise
+
     
     def step( self, num_steps = 1 ):
         if self.steps + num_steps > self.max_steps:

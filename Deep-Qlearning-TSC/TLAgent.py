@@ -247,11 +247,7 @@ class TLAgent:
                 # os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment, e-1))
                 utils.remove_qmodel(experiment, e-1)
                 utils.remove_stats(experiment, e-1)
-            elif experiment !=0:
-                # os.remove('{}qmodel_{}_{}.h5'.format(self.save_folder, experiment-1, self.total_episodes-1))
-                # os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment-1, self.total_episodes-1))
-                utils.remove_qmodel(experiment-1, self.total_episodes-1)
-                utils.remove_stats(experiment-1, self.total_episodes-1)
+            # Keep all experiment final models - don't delete previous experiment's checkpoint
             self.traffic_gen.generate_routefile(e+1)
             curr_state = self.env.reset()   # reset the environment before every episode
             print('Epoch {} complete'.format(e))

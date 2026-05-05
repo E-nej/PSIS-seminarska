@@ -4,7 +4,7 @@ All code lives in `Deep-Qlearning-TSC/`. The main entry point is:
 
 ```bash
 cd Deep-Qlearning-TSC
-python tl_main.py
+python main.py
 ```
 
 **Key toggles at the top of `tl_main.py`:**

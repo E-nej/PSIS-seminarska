@@ -51,7 +51,25 @@ def get_init_epoch( filename,total_episodes ):
 
 def get_stats(stats_filename, num_experiments, total_episodes, learn = True):
     if stats_filename and learn:
-        stats =np.load(stats_filename, allow_pickle = True)[()] 
+        stats = np.load(stats_filename, allow_pickle = True)[()]
+        expected_shape = (num_experiments, total_episodes)
+        if ('rewards' not in stats or 'intersection_queue' not in stats or
+                stats['rewards'].shape != expected_shape or
+                stats['intersection_queue'].shape != expected_shape):
+            print(f"Stats file shape mismatch: rewards={stats.get('rewards').shape if 'rewards' in stats else None}, "
+                  f"intersection_queue={stats.get('intersection_queue').shape if 'intersection_queue' in stats else None}. "
+                  f"Reinitializing stats to {expected_shape}.")
+            reward_store = np.zeros(expected_shape)
+            intersection_queue_store = np.zeros(expected_shape)
+            if 'rewards' in stats and stats['rewards'].ndim == 2:
+                n_exp = min(num_experiments, stats['rewards'].shape[0])
+                n_ep = min(total_episodes, stats['rewards'].shape[1])
+                reward_store[:n_exp, :n_ep] = stats['rewards'][:n_exp, :n_ep]
+            if 'intersection_queue' in stats and stats['intersection_queue'].ndim == 2:
+                n_exp = min(num_experiments, stats['intersection_queue'].shape[0])
+                n_ep = min(total_episodes, stats['intersection_queue'].shape[1])
+                intersection_queue_store[:n_exp, :n_ep] = stats['intersection_queue'][:n_exp, :n_ep]
+            stats = {'rewards': reward_store, 'intersection_queue': intersection_queue_store}
     else:
         reward_store = np.zeros((num_experiments,total_episodes))
         intersection_queue_store = np.zeros((num_experiments,total_episodes))
