@@ -88,17 +88,26 @@ class TLAgent:
         self.TargetQModel.set_weights( self.QModel.get_weights()) 
         
     def _replay(self):
-        x_batch, y_batch = [], []
-        mini_batch = random.sample( self.replay_buffer, min(len(self.replay_buffer), self.batch_size)) 
-        
-        for i in range( len(mini_batch)):
-            curr_state, action, reward, next_state, done = mini_batch[i]
-            y_target = self.QModel.predict(curr_state) # get existing Qvalues for the current state
-            y_target[0][action] = reward if done else reward + self.discount*np.max(self.TargetQModel.predict(next_state)) # modify the qvalues for the action perfomrmed to get the new target 
-            x_batch.append(curr_state[0])
-            y_batch.append(y_target[0])
-        
-        self.QModel.fit(np.array(x_batch), np.array(y_batch), batch_size=len(x_batch), verbose=0)
+        mini_batch = random.sample(self.replay_buffer, min(len(self.replay_buffer), self.batch_size))
+
+        # stack vse state-e v en array in naredi SAMO 2 predict-a
+        # namesto 200 (po 1 na sample za QModel + 1 za TargetQModel)
+        curr_states = np.array([m[0][0] for m in mini_batch])
+        next_states = np.array([m[3][0] for m in mini_batch])
+
+        # batched predictions - to je glavni speedup
+        q_curr = self.QModel.predict(curr_states, verbose=0)
+        q_next = self.TargetQModel.predict(next_states, verbose=0)
+
+        # update Q values for taken actions
+        for i, (_, action, reward, _, done) in enumerate(mini_batch):
+            if done:
+                q_curr[i][action] = reward
+            else:
+                q_curr[i][action] = reward + self.discount * np.max(q_next[i])
+
+        # train_on_batch ima manj overhead-a kot fit() za en sam batch
+        self.QModel.model.train_on_batch(curr_states, q_curr)
         
     def _agent_policy(self, episode, state, learn = True):
         if learn:
@@ -216,6 +225,12 @@ class TLAgent:
             done = False
             sum_intersection_queue = 0
             sum_neg_rewards = 0
+
+            # target sync premaknjen iz inner loop-a (prej je sinhroniziral
+            # vsak step ko je bil e % tau == 0 — useless waste, isti efekt)
+            if e > 0 and e % self.tau == 0:
+                self._sync_target_model()
+
             while not done:
                 action = self._agent_policy(e, curr_state)
                 yellow_reward = 0
@@ -229,10 +244,9 @@ class TLAgent:
                 reward += yellow_reward
                 next_state = self._preprocess_input( next_state )
                 self._add_to_replay_buffer( curr_state, action, reward, next_state, done )
-                
-                if e > 0 and e % self.tau == 0:
-                    self._sync_target_model()
+
                 self._replay()
+
                 curr_state = next_state
                 old_action = action
                 sum_intersection_queue += self.env.get_intersection_q_per_step()
@@ -261,4 +275,3 @@ class TLAgent:
         self.stats['intersection_queue'][experiment, episode] = sum_intersection_queue_per_episode  
         # np.save('{}stats_{}_{}.npy'.format(self.save_folder, experiment, episode), self.stats)
         utils.save_stats(self.stats, experiment, episode)
-        

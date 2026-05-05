@@ -28,8 +28,8 @@ if __name__ == "__main__":
     # 0 predstavlja experiment number, 9 predstavlja epoch number (stetje je od 0)
     # ce das total_episodes na vec kot 10, potem se nadaljuje training tega modela, ce das na manj kot 10, potem se nadaljuje training naslednjega modela (npr. qmodel_1_0)
     #
-    max_steps = 150
-    total_episodes = 4
+    max_steps = 5400
+    total_episodes = 8
     num_experiments = 1
     learn = training_enabled
     traffic_gen = TrafficGenerator(max_steps)
