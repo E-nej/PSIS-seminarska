@@ -96,8 +96,8 @@ class TLAgent:
         next_states = np.array([m[3][0] for m in mini_batch])
 
         # batched predictions - to je glavni speedup
-        q_curr = self.QModel.predict(curr_states, verbose=0)
-        q_next = self.TargetQModel.predict(next_states, verbose=0)
+        q_curr = self.QModel.predict(curr_states)
+        q_next = self.TargetQModel.predict(next_states)
 
         # update Q values for taken actions
         for i, (_, action, reward, _, done) in enumerate(mini_batch):
