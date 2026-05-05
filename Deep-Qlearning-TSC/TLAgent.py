@@ -62,20 +62,24 @@ class TLAgent:
         self._load_models(learn)
         self.max_steps = max_steps
                         
-    def _load_models(self , learn = True) :
-        self.QModel = Model(self.num_states, self.num_actions )
-        self.TargetQModel = Model(self.num_states, self.num_actions)
-        
-        if  self.init_epoch !=0 or not learn:
-            print('model read from file')
-            qmodel_fd = open(self.qmodel_filename, 'r')
-                   
-            if (qmodel_fd is not None):
-                
-                self.QModel = load_model(qmodel_fd.name)
-                self.TargetQModel = load_model(qmodel_fd.name)
+    def _load_models(self, learn=True):
+            # Vedno inicializiramo naš wrapper razred Model
+            self.QModel = Model(self.num_states, self.num_actions)
+            self.TargetQModel = Model(self.num_states, self.num_actions)
             
-        return   self.QModel, self.TargetQModel    
+            if self.init_epoch != 0 or not learn:
+                print('model read from file')
+                # Prepričamo se, da datoteka obstaja, preden jo naložimo
+                if os.path.exists(self.qmodel_filename):
+                    # Naložimo model iz datoteke
+                    loaded_keras_model = load_model(self.qmodel_filename)
+                    # Prenesemo uteži v naše wrapper objekte
+                    self.QModel.model.set_weights(loaded_keras_model.get_weights())
+                    self.TargetQModel.model.set_weights(loaded_keras_model.get_weights())
+                else:
+                    print(f"Warning: File {self.qmodel_filename} not found. Starting with fresh weights.")
+                
+            return self.QModel, self.TargetQModel
 
     def _preprocess_input(self, state):
         state = np.reshape(state, [1, self.num_states])
@@ -108,7 +112,7 @@ class TLAgent:
 
         # train_on_batch ima manj overhead-a kot fit() za en sam batch
         self.QModel.model.train_on_batch(curr_states, q_curr)
-        
+
     def _agent_policy(self, episode, state, learn = True):
         if learn:
             epsilon = 1 - episode/self.total_episodes
