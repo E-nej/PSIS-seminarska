@@ -1,10 +1,9 @@
-<<<<<<< HEAD
-Repozitorij glavnega članka: https://github.com/RituPande/DQL-TSC.git.
+## Zagon projekta
 
-Ostali koristni repozitoriji: https://github.com/LucasAlegre/sumo-rl.git.
 
-# ČLANEK
-## Adaptive traffic signal control using deep reinforcement learning: A multi-objective approach for single and multi-intersection scenarios 
+
+ČLANEK 
+Adaptive traffic signal control using deep reinforcement learning: A multi-objective approach for single and multi-intersection scenarios 
 (vir: https://www.sciencedirect.com/science/article/pii/S0386111225000445)
 
 ## 1. Adaptive Traffic Signal Control
@@ -330,5 +329,3 @@ We could prove that the proposed approach of building an adaptive TLCS using Dee
 [5] Reinforcement Learning. Richard S. Sutton and Andrew G. Barto   
 [6] Adaptive Traffic Signal Control: Deep Reinforcement Learning Algorithm with Experience Replay and Target Network Juntao Gao, Yulong Shen, Jia Liu, Minoru Ito and Norio Shiratori  
 [7] A Deep Reinforcement Learning Approach to Adaptive Traffic Lights Management Andrea Vidali, Luca Crociani, Giuseppe Vizzari, Stefania Bandini  
-=======
->>>>>>> a96e688 (New README.md)
