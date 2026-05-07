@@ -26,7 +26,7 @@ import math
 # HANDLE THE GENERATION OF VEHICLES IN ONE EPISODE
 class TrafficGenerator:
     def __init__(self, max_steps):
-        self._n_cars_generated = 1000  # how many cars per episode
+        self._n_cars_generated = 500  # how many cars per episode
         self._max_steps = max_steps
 
     # generation of routes of cars

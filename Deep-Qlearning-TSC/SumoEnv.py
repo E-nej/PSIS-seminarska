@@ -21,6 +21,7 @@ class SumoEnv:
         self.current_state = None
         self.curr_wait_time = 0
         self.steps = 0
+        self.last_queue_sum = 0
         
     def get_state(self):
         return self.current_state
@@ -51,24 +52,30 @@ class SumoEnv:
         if self.steps + num_steps > self.max_steps:
             num_steps = self.max_steps - self.steps
             
+        queue_sum = 0
+
         for i in range(num_steps):
             traci.simulationStep()
+            queue_sum += self.get_intersection_q_per_step()
+
+        self.last_queue_sum = queue_sum
          
         self.steps += num_steps
         self.current_state = self._encode_env_state()
         new_wait_time  = self._get_waiting_time()
         #print("new_wait_time={}".format(new_wait_time))
+
         # calculate reward of action taken (change in cumulative waiting time between actions)
         # waiting time = seconds waited by a car since the spawn in the environment, cumulated for every car in incoming lanes
-        reward = 0.9*self.curr_wait_time - new_wait_time
+        reward = self.curr_wait_time - new_wait_time
         #print("reward={}".format(reward))
         self.curr_wait_time = new_wait_time
         
         # one episode ends when all vehicles have arrived at their destination
-        if self.steps < self.max_steps:
-            is_terminal =False
-        else:
-            is_terminal = True
+        is_terminal = (
+            self.steps >= self.max_steps
+            or traci.simulation.getMinExpectedNumber() == 0
+        )
             
         return (reward, self.current_state, is_terminal)
  
