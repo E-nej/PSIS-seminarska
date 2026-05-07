@@ -88,19 +88,19 @@ def plot_sample(sample, title, xlabel, legend_label, show= True):
     
 def plot_rewards( reward_store):
     x = np.mean(reward_store, axis = 0 )
-    plt.plot( x , label = "Cummulative negative wait times") 
+    plt.plot( x , label = "Average negative wait reward per step") 
     plt.xlabel('Episodes') 
-    plt.ylabel('Cummulative negative wait times') 
-    plt.title('Cummulative negative wait times across episodes') 
+    plt.ylabel('Average negative wait reward per step') 
+    plt.title('Average negative wait reward across episodes') 
     plt.legend() 
     plt.show() 
     
 def plot_intersection_queue_size( intersection_queue_store):
     x = np.mean(intersection_queue_store, axis = 0 )
-    plt.plot(x, label = "Cummulative intersection queue size ", color='m') 
+    plt.plot(x, label = "Average intersection queue size per step", color='m') 
     plt.xlabel('Episodes') 
-    plt.ylabel('Cummulative intersection queue size') 
-    plt.title('Cummulative intersection queue size across episodes') 
+    plt.ylabel('Average intersection queue size per step') 
+    plt.title('Average intersection queue size across episodes') 
     plt.legend() 
     plt.show() 
     
