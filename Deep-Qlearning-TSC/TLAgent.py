@@ -32,7 +32,7 @@ class TLAgent:
         self.env = env
         self.traffic_gen = traffic_gen
         self.total_episodes = total_episodes
-        self.discount = 0.75
+        self.discount = 0.95
         self.epsilon = 0.9
         self.replay_buffer = deque(maxlen=50000)
         self.batch_size = 100
@@ -115,7 +115,7 @@ class TLAgent:
 
     def _agent_policy(self, episode, state, learn = True):
         if learn:
-            epsilon = 1 - episode/self.total_episodes
+            epsilon = max(0.05, 1 - episode / self.total_episodes)
             choice  = np.random.random()
             if choice <= epsilon:
                 action = np.random.choice(range(self.num_actions))
@@ -220,7 +220,7 @@ class TLAgent:
             
         
     def train(self, experiment):
-        self.traffic_gen.generate_routefile(0)
+        self.traffic_gen.generate_routefile(experiment * self.total_episodes + self.init_epoch)
         curr_state = self.env.start()
    
         for e in range(self.init_epoch, self.total_episodes):
@@ -253,11 +253,17 @@ class TLAgent:
 
                 curr_state = next_state
                 old_action = action
-                sum_intersection_queue += self.env.get_intersection_q_per_step()
+                sum_intersection_queue += self.env.last_queue_sum
                 if reward < 0:
                     sum_neg_rewards += reward
                     
-            self._save_stats(experiment, e, sum_intersection_queue,sum_neg_rewards)
+            steps_used = max(1, self.env.steps)
+
+            avg_intersection_queue = sum_intersection_queue / steps_used
+            avg_neg_rewards = sum_neg_rewards / steps_used
+
+            self._save_stats(experiment, e, avg_intersection_queue, avg_neg_rewards)
+            
             # self.QModel.save('{}qmodel_{}_{}.h5'.format(self.save_folder, experiment, e))
             utils.save_qmodel(self.QModel, experiment, e)
             if e != 0:
@@ -266,7 +272,9 @@ class TLAgent:
                 utils.remove_qmodel(experiment, e-1)
                 utils.remove_stats(experiment, e-1)
             # Keep all experiment final models - don't delete previous experiment's checkpoint
-            self.traffic_gen.generate_routefile(e+1)
+            if e + 1 < self.total_episodes:
+                seed = experiment * self.total_episodes + e + 1
+                self.traffic_gen.generate_routefile(seed)
             curr_state = self.env.reset()   # reset the environment before every episode
             print('Epoch {} complete'.format(e))
         
