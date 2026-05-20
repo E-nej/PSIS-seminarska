@@ -77,14 +77,12 @@ def get_stats(stats_filename, num_experiments, total_episodes, learn = True):
 
     return stats 
     
-def plot_sample(sample, title, xlabel, legend_label, show= True):
-   #plt.hist(sample, bins = 5, histtype = 'bar')
-    #plt.xlabel(xlabel)
-    ax= sns.distplot(sample, kde=True, label =  legend_label)
-    ax.set(xlabel=xlabel, title= title)
+def plot_sample(sample, title, xlabel, legend_label, show=True):
+    ax = sns.kdeplot(sample, label=legend_label)
+    ax.set(xlabel=xlabel, title=title)
     ax.legend()
     if show:
-        plt.show()   
+        plt.show()
     
 def plot_rewards( reward_store):
     x = np.mean(reward_store, axis = 0 )

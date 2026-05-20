@@ -33,7 +33,6 @@ class TLAgent:
         self.traffic_gen = traffic_gen
         self.total_episodes = total_episodes
         self.discount = 0.95
-        self.epsilon = 0.9
         self.replay_buffer = deque(maxlen=50000)
         self.batch_size = 100
         self.num_states = 80
@@ -52,7 +51,6 @@ class TLAgent:
         self.green_duration = 10
         self.yellow_duration = 4
         self.stats = stats
-        self.init_epoch = 0
         self.QModel = None
         self.tau = 20
         self.TargetQModel = None
@@ -63,23 +61,19 @@ class TLAgent:
         self.max_steps = max_steps
                         
     def _load_models(self, learn=True):
-            # Vedno inicializiramo naš wrapper razred Model
-            self.QModel = Model(self.num_states, self.num_actions)
-            self.TargetQModel = Model(self.num_states, self.num_actions)
-            
-            if self.init_epoch != 0 or not learn:
-                print('model read from file')
-                # Prepričamo se, da datoteka obstaja, preden jo naložimo
-                if os.path.exists(self.qmodel_filename):
-                    # Naložimo model iz datoteke
-                    loaded_keras_model = load_model(self.qmodel_filename)
-                    # Prenesemo uteži v naše wrapper objekte
-                    self.QModel.model.set_weights(loaded_keras_model.get_weights())
-                    self.TargetQModel.model.set_weights(loaded_keras_model.get_weights())
-                else:
-                    print(f"Warning: File {self.qmodel_filename} not found. Starting with fresh weights.")
-                
-            return self.QModel, self.TargetQModel
+        self.QModel = Model(self.num_states, self.num_actions)
+        self.TargetQModel = Model(self.num_states, self.num_actions)
+
+        if self.init_epoch != 0 or not learn:
+            print('model read from file')
+            if os.path.exists(self.qmodel_filename):
+                loaded_keras_model = load_model(self.qmodel_filename)
+                self.QModel.model.set_weights(loaded_keras_model.get_weights())
+                self.TargetQModel.model.set_weights(loaded_keras_model.get_weights())
+            else:
+                print(f"Warning: File {self.qmodel_filename} not found. Starting with fresh weights.")
+
+        return self.QModel, self.TargetQModel
 
     def _preprocess_input(self, state):
         state = np.reshape(state, [1, self.num_states])
@@ -167,24 +161,23 @@ class TLAgent:
                 next_state = self._preprocess_input( next_state )
                 curr_state = next_state
                 old_action = action
-                sum_intersection_queue += self.env.get_intersection_q_per_step()
+                sum_intersection_queue += self.env.last_queue_sum
                 if reward < 0:
                     sum_neg_rewards += reward
 
-            self._save_stats(experiment, e, sum_intersection_queue,sum_neg_rewards)
+            steps_used = max(1, self.env.steps)
+            self._save_stats(experiment, e, sum_intersection_queue / steps_used, sum_neg_rewards / steps_used)
             print('sum_neg_rewards={}'.format(sum_neg_rewards))
             print('sum_intersection_queue={}'.format(sum_intersection_queue))
             print('Epoch {} complete'.format(e))
             if e != 0:
-                # os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment, e-1))
                 utils.remove_stats(experiment, e-1)
-            elif experiment !=0:
-                # os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment-1, self.total_episodes-1))
+            elif experiment != 0:
                 utils.remove_stats(experiment-1, self.total_episodes-1)
-            if e +1 < self.total_episodes:
+            if e + 1 < self.total_episodes:
                 self.traffic_gen.generate_routefile(seeds[e+1])
-            curr_state =self.env.reset()
-        
+            curr_state = self.env.reset()
+
     def execute_classical(self, experiment, seeds):
         self.traffic_gen.generate_routefile(seeds[self.init_epoch])
         self.env.start()
@@ -202,19 +195,20 @@ class TLAgent:
                     reward += yellow_reward
                     if reward < 0:
                         sum_neg_rewards += reward
-                    sum_intersection_queue += self.env.get_intersection_q_per_step()
-                    
-            self._save_stats(experiment, e, sum_intersection_queue,sum_neg_rewards)
+                    sum_intersection_queue += self.env.last_queue_sum
+                    if done:
+                        break
+
+            steps_used = max(1, self.env.steps)
+            self._save_stats(experiment, e, sum_intersection_queue / steps_used, sum_neg_rewards / steps_used)
             print('sum_neg_rewards={}'.format(sum_neg_rewards))
             print('sum_intersection_queue={}'.format(sum_intersection_queue))
             print('Epoch {} complete'.format(e))
             if e != 0:
-                # os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment, e-1))
                 utils.remove_stats(experiment, e-1)
-            elif experiment !=0:
-                # os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment-1, self.total_episodes-1))
+            elif experiment != 0:
                 utils.remove_stats(experiment-1, self.total_episodes-1)
-            if e +1 < self.total_episodes:
+            if e + 1 < self.total_episodes:
                 self.traffic_gen.generate_routefile(seeds[e+1])
             self.env.reset()
             
@@ -264,11 +258,8 @@ class TLAgent:
 
             self._save_stats(experiment, e, avg_intersection_queue, avg_neg_rewards)
             
-            # self.QModel.save('{}qmodel_{}_{}.h5'.format(self.save_folder, experiment, e))
             utils.save_qmodel(self.QModel, experiment, e)
             if e != 0:
-                # os.remove('{}qmodel_{}_{}.h5'.format(self.save_folder, experiment, e-1))
-                # os.remove('{}stats_{}_{}.npy'.format(self.save_folder, experiment, e-1))
                 utils.remove_qmodel(experiment, e-1)
                 utils.remove_stats(experiment, e-1)
             # Keep all experiment final models - don't delete previous experiment's checkpoint
@@ -278,12 +269,7 @@ class TLAgent:
             curr_state = self.env.reset()   # reset the environment before every episode
             print('Epoch {} complete'.format(e))
         
-    def execute(self):
-        while traci.simulation.getMinExpectedNumber() > 0:
-            traci.simulationStep()
-            
-    def _save_stats(self, experiment, episode, sum_intersection_queue_per_episode, sum_rewards_per_episode):
-        self.stats['rewards'][experiment, episode] = sum_rewards_per_episode
-        self.stats['intersection_queue'][experiment, episode] = sum_intersection_queue_per_episode  
-        # np.save('{}stats_{}_{}.npy'.format(self.save_folder, experiment, episode), self.stats)
+    def _save_stats(self, experiment, episode, avg_queue, avg_rewards):
+        self.stats['rewards'][experiment, episode] = avg_rewards
+        self.stats['intersection_queue'][experiment, episode] = avg_queue
         utils.save_stats(self.stats, experiment, episode)
