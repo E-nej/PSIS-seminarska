@@ -13,8 +13,13 @@ class SumoEnv:
          os.makedirs("results", exist_ok=True)
          self.sumoCmd = [sumoBinary, "-c", "intersection/ts.4L.sumocfg", "--no-step-log", "true", "--waiting-time-memory", str(max_steps), "--log","results/logfile.txt"]
          self.SUMO_INT_LANE_LENGTH = 500
-         self.num_states = 80 # 0-79 see _encode_env_state function for details
+         self.num_states = 88 # 80 binary position cells + 8 normalized scalar features
          self.max_steps = max_steps
+         # reward weights: delay, stops, queue, CO2
+         self.w1 = 0.4
+         self.w2 = 0.2
+         self.w3 = 0.2
+         self.w4 = 0.0001  # CO2 is in mg/s so needs a much smaller weight
          self._init()
                   
     def _init(self):
@@ -22,6 +27,11 @@ class SumoEnv:
         self.curr_wait_time = 0
         self.steps = 0
         self.last_queue_sum = 0
+        self.last_delay_sum = 0
+        self.last_stops_sum = 0
+        self.last_co2_sum = 0
+        self.last_speed_sum = 0
+        self.last_vehicle_count_sum = 0
         
     def get_state(self):
         return self.current_state
@@ -51,25 +61,49 @@ class SumoEnv:
     def step( self, num_steps = 1 ):
         if self.steps + num_steps > self.max_steps:
             num_steps = self.max_steps - self.steps
-            
+
         queue_sum = 0
+        delay_sum = 0
+        stops_sum = 0
+        co2_sum = 0
+        speed_sum = 0
+        vehicle_count_sum = 0
 
         for i in range(num_steps):
             traci.simulationStep()
             queue_sum += self.get_intersection_q_per_step()
+            new_wait = self._get_waiting_time()
+            delay_sum += new_wait - self.curr_wait_time  # delta: increase in wait time this step
+            self.curr_wait_time = new_wait
+            stops_sum += self.get_stops_per_step()
+            co2_sum += self.get_co2_per_step()
+            speed_sum += self.get_average_speed_per_step()
+            vehicle_count_sum += self.get_vehicle_count_per_step()
 
         self.last_queue_sum = queue_sum
-         
+        self.last_delay_sum = delay_sum
+        self.last_stops_sum = stops_sum
+        self.last_co2_sum = co2_sum
+        self.last_speed_sum = speed_sum
+        self.last_vehicle_count_sum = vehicle_count_sum
+
         self.steps += num_steps
         self.current_state = self._encode_env_state()
-        new_wait_time  = self._get_waiting_time()
-        #print("new_wait_time={}".format(new_wait_time))
+        # new_wait_time  = self._get_waiting_time()
+        # #print("new_wait_time={}".format(new_wait_time))
 
-        # calculate reward of action taken (change in cumulative waiting time between actions)
-        # waiting time = seconds waited by a car since the spawn in the environment, cumulated for every car in incoming lanes
-        reward = self.curr_wait_time - new_wait_time
-        #print("reward={}".format(reward))
-        self.curr_wait_time = new_wait_time
+        # # calculate reward of action taken (change in cumulative waiting time between actions)
+        # # waiting time = seconds waited by a car since the spawn in the environment, cumulated for every car in incoming lanes
+        # reward = self.curr_wait_time - new_wait_time
+        # #print("reward={}".format(reward))
+        # self.curr_wait_time = new_wait_time
+
+        reward = -(
+            self.w1 * delay_sum +
+            self.w2 * stops_sum +
+            self.w3 * queue_sum +
+            self.w4 * co2_sum
+        ) / max(1, num_steps)
         
         # one episode ends when all vehicles have arrived at their destination
         is_terminal = (
@@ -98,9 +132,31 @@ class SumoEnv:
         halt_W = traci.edge.getLastStepHaltingNumber("W2TL")
         intersection_queue = halt_N + halt_S + halt_E + halt_W
         return intersection_queue
-        
+
+    def get_stops_per_step(self):
+        incoming_roads = ["E2TL", "N2TL", "W2TL", "S2TL"]
+        stops = sum(traci.edge.getLastStepHaltingNumber(r) for r in incoming_roads)
+        return stops
+
+    def get_vehicle_count_per_step(self):
+        incoming_roads = ["E2TL", "N2TL", "W2TL", "S2TL"]
+        count = sum(traci.edge.getLastStepVehicleNumber(r) for r in incoming_roads)
+        return count
+
+    def get_average_speed_per_step(self):
+        incoming_roads = ["E2TL", "N2TL", "W2TL", "S2TL"]
+        speeds = [traci.edge.getLastStepMeanSpeed(r) for r in incoming_roads]
+        # filter out edges with no vehicles (SUMO returns -1 or 0 for empty edges)
+        active = [s for s in speeds if s > 0]
+        return sum(active) / len(active) if active else 0.0
+
+    def get_co2_per_step(self):
+        incoming_roads = ["E2TL", "N2TL", "W2TL", "S2TL"]
+        co2 = sum(traci.edge.getCO2Emission(r) for r in incoming_roads)
+        return co2
+
     def _encode_env_state( self ):
-        state = np.zeros(self.num_states)
+        state = np.zeros(80)  # binary position cells only; extra features appended below
 
         for veh_id in traci.vehicle.getIDList():
             lane_pos = traci.vehicle.getLanePosition(veh_id)
@@ -160,7 +216,17 @@ class SumoEnv:
             if is_car_valid:
                 state[veh_position] = 1  # write the position of the car veh_id in the state array
 
-        return state
+        extra = np.array([
+            self.get_intersection_q_per_step() / 500,
+            self.get_vehicle_count_per_step() / 500,
+            self.get_average_speed_per_step() / 25,
+            traci.trafficlight.getPhase("TL") / 7,
+            self.get_stops_per_step() / 500,
+            self.get_co2_per_step() / 100000,
+            self.steps / self.max_steps,
+            traci.simulation.getMinExpectedNumber() / 500,
+        ])
+        return np.concatenate([state, extra])
         
     def __del__( self ):
         try:

@@ -35,7 +35,7 @@ class TLAgent:
         self.discount = 0.95
         self.replay_buffer = deque(maxlen=50000)
         self.batch_size = 100
-        self.num_states = 80
+        self.num_states = 88
         self.num_actions = 4
         self.num_experiments = num_experients
         # phases are in same order as specified in the .net.xml file
@@ -223,6 +223,9 @@ class TLAgent:
             done = False
             sum_intersection_queue = 0
             sum_neg_rewards = 0
+            sum_delay = 0
+            sum_stops = 0
+            sum_co2 = 0
 
             # target sync premaknjen iz inner loop-a (prej je sinhroniziral
             # vsak step ko je bil e % tau == 0 — useless waste, isti efekt)
@@ -248,15 +251,21 @@ class TLAgent:
                 curr_state = next_state
                 old_action = action
                 sum_intersection_queue += self.env.last_queue_sum
+                sum_delay += self.env.last_delay_sum
+                sum_stops += self.env.last_stops_sum
+                sum_co2 += self.env.last_co2_sum
                 if reward < 0:
                     sum_neg_rewards += reward
-                    
+
             steps_used = max(1, self.env.steps)
 
             avg_intersection_queue = sum_intersection_queue / steps_used
             avg_neg_rewards = sum_neg_rewards / steps_used
+            avg_delay = sum_delay / steps_used
+            avg_stops = sum_stops / steps_used
+            avg_co2 = sum_co2 / steps_used
 
-            self._save_stats(experiment, e, avg_intersection_queue, avg_neg_rewards)
+            self._save_stats(experiment, e, avg_intersection_queue, avg_neg_rewards, avg_delay, avg_stops, avg_co2)
             
             utils.save_qmodel(self.QModel, experiment, e)
             if e != 0:
@@ -268,8 +277,11 @@ class TLAgent:
                 self.traffic_gen.generate_routefile(seed)
             curr_state = self.env.reset()   # reset the environment before every episode
             print('Epoch {} complete'.format(e))
-        
-    def _save_stats(self, experiment, episode, avg_queue, avg_rewards):
+            
+    def _save_stats(self, experiment, episode, avg_queue, avg_rewards, avg_delay=0, avg_stops=0, avg_co2=0):
         self.stats['rewards'][experiment, episode] = avg_rewards
         self.stats['intersection_queue'][experiment, episode] = avg_queue
+        self.stats['delay'][experiment, episode] = avg_delay
+        self.stats['stops'][experiment, episode] = avg_stops
+        self.stats['co2'][experiment, episode] = avg_co2
         utils.save_stats(self.stats, experiment, episode)
