@@ -24,8 +24,12 @@ import numpy as np
 import random
 from collections import deque
 from tensorflow.keras.models import load_model # type: ignore
+import tensorflow as tf
+from tqdm import tqdm
 
 import utils
+
+tf.keras.utils.disable_interactive_logging()
 
 class TLAgent:
     def __init__(self, env, traffic_gen, max_steps, num_experients, total_episodes, qmodel_filename, stats_filename, stats , init_epoch, learn = True):     
@@ -216,8 +220,11 @@ class TLAgent:
     def train(self, experiment):
         self.traffic_gen.generate_routefile(experiment * self.total_episodes + self.init_epoch)
         curr_state = self.env.start()
-   
-        for e in range(self.init_epoch, self.total_episodes):
+
+        ep_bar = tqdm(range(self.init_epoch, self.total_episodes),
+                      desc=f"Exp {experiment}", unit="ep", position=0, leave=True)
+
+        for e in ep_bar:
             curr_state = self._preprocess_input(curr_state)
             old_action =  None
             done = False
@@ -227,21 +234,24 @@ class TLAgent:
             sum_stops = 0
             sum_co2 = 0
 
-            # target sync premaknjen iz inner loop-a (prej je sinhroniziral
-            # vsak step ko je bil e % tau == 0 — useless waste, isti efekt)
             if e > 0 and e % self.tau == 0:
                 self._sync_target_model()
+
+            step_bar = tqdm(total=self.max_steps, desc=f"  Ep {e:3d} steps",
+                            unit="step", position=1, leave=False)
 
             while not done:
                 action = self._agent_policy(e, curr_state)
                 yellow_reward = 0
-                    
-                if old_action!= None and old_action != action:
+
+                if old_action != None and old_action != action:
                     self._set_yellow_phase(old_action)
                     yellow_reward, _ , _ = self.env.step(self.yellow_duration)
-                   
+                    step_bar.update(self.yellow_duration)
+
                 self._set_green_phase(action)
                 reward, next_state, done = self.env.step(self.green_duration)
+                step_bar.update(self.green_duration)
                 reward += yellow_reward
                 next_state = self._preprocess_input( next_state )
                 self._add_to_replay_buffer( curr_state, action, reward, next_state, done )
@@ -257,6 +267,7 @@ class TLAgent:
                 if reward < 0:
                     sum_neg_rewards += reward
 
+            step_bar.close()
             steps_used = max(1, self.env.steps)
 
             avg_intersection_queue = sum_intersection_queue / steps_used
@@ -265,18 +276,22 @@ class TLAgent:
             avg_stops = sum_stops / steps_used
             avg_co2 = sum_co2 / steps_used
 
+            ep_bar.set_postfix({
+                'reward': f'{avg_neg_rewards:.4f}',
+                'queue': f'{avg_intersection_queue:.2f}',
+                'delay': f'{avg_delay:.2f}',
+            })
+
             self._save_stats(experiment, e, avg_intersection_queue, avg_neg_rewards, avg_delay, avg_stops, avg_co2)
-            
+
             utils.save_qmodel(self.QModel, experiment, e)
             if e != 0:
                 utils.remove_qmodel(experiment, e-1)
                 utils.remove_stats(experiment, e-1)
-            # Keep all experiment final models - don't delete previous experiment's checkpoint
             if e + 1 < self.total_episodes:
                 seed = experiment * self.total_episodes + e + 1
                 self.traffic_gen.generate_routefile(seed)
-            curr_state = self.env.reset()   # reset the environment before every episode
-            print('Epoch {} complete'.format(e))
+            curr_state = self.env.reset()
             
     def _save_stats(self, experiment, episode, avg_queue, avg_rewards, avg_delay=0, avg_stops=0, avg_co2=0):
         self.stats['rewards'][experiment, episode] = avg_rewards
