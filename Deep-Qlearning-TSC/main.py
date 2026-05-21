@@ -31,6 +31,7 @@ if __name__ == "__main__":
     max_steps = 1800
     total_episodes = 80
     num_experiments = 3
+    
     learn = training_enabled
     traffic_gen = TrafficGenerator(max_steps)
     qmodel_filename, stats_filename = utils.get_file_names()
@@ -74,7 +75,10 @@ if __name__ == "__main__":
         print(stats['rewards'][0:experiment+1, :])
         print(stats['intersection_queue'][0:experiment+1, :])
         utils.plot_rewards(stats['rewards'][0:experiment+1, :])
-        utils.plot_intersection_queue_size( stats['intersection_queue'][0:experiment+1, :])
+        utils.plot_intersection_queue_size(stats['intersection_queue'][0:experiment+1, :])
+        utils.plot_delay(stats['delay'][0:experiment+1, :])
+        utils.plot_stops(stats['stops'][0:experiment+1, :])
+        utils.plot_co2(stats['co2'][0:experiment+1, :])
         del env
         del tl
         print('Experiment {} complete.........'.format(experiment))
